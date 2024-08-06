@@ -193,7 +193,9 @@ func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 	}
 
 	for symbol, quote := range quoteMessage.Sid {
-		s.OnReceiveMarketDataCallback(symbol, quote)
+		if _, ok := LegalSymbolMap[symbol]; ok {
+			s.OnReceiveMarketDataCallback(symbol, quote)
+		}
 	}
 
 }
