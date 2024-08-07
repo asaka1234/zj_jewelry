@@ -199,18 +199,20 @@ func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 
 			//批量一下
 			quoteList = append(quoteList, Ticker{
-				Symbol:  symbol,
-				Bid:     convert2String(quote.Buy),
-				Ask:     convert2String(quote.Sell),
-				High:    convert2String(quote.High),
-				Low:     convert2String(quote.Low),
-				PubTime: quoteMessage.PubTime, //2024-08-07 18:36:43
+				Symbol: symbol,
+				Bid:    convert2String(quote.Buy),
+				Ask:    convert2String(quote.Sell),
+				High:   convert2String(quote.High),
+				Low:    convert2String(quote.Low),
 			})
 		}
 	}
 
 	//一个批量消息传递
-	s.OnReceiveMarketDataCallback(quoteList)
+	s.OnReceiveMarketDataCallback(BatchTicker{
+		PubTime: quoteMessage.PubTime, //2024-08-07 18:36:43
+		Data:    quoteList,
+	})
 
 	/*
 		//批量的传递

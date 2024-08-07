@@ -12,9 +12,9 @@ import (
 func TestExx_Signed(t *testing.T) {
 	_, err := Connect(
 		WidgetDataWssAddress, //DataWssAddress,                     //WidgetDataWssAddress,         //wss地址
-		func(data []Ticker) {
+		func(data BatchTicker) {
 
-			for _, item := range data {
+			for _, item := range data.Data {
 
 				fmt.Printf("symbol:%s\n", item.Symbol)
 				resp1, _ := json.Marshal(data)

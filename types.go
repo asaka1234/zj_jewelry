@@ -32,13 +32,17 @@ type SymbolQuote struct {
 }
 
 // -------------------------------------------------------
+type BatchTicker struct {
+	PubTime string   `json:"pub_time"` //发布时间 2024-08-07 18:36:43
+	Data    []Ticker `json:"data"`
+}
+
 type Ticker struct {
-	Symbol  string `json:"symbol"`
-	Ask     string `json:"ask"`
-	Bid     string `json:"bid"`
-	High    string `json:"high"`
-	Low     string `json:"low"`      //价格没有的话就是 "-"
-	PubTime string `json:"pub_time"` //发布时间
+	Symbol string `json:"symbol"`
+	Ask    string `json:"ask"`
+	Bid    string `json:"bid"`
+	High   string `json:"high"`
+	Low    string `json:"low"` //价格没有的话就是 "-"
 }
 
 // Flags ...
@@ -47,7 +51,7 @@ type Flags struct {
 }
 
 // OnReceiveDataCallback ...
-type OnReceiveDataCallback func(data []Ticker)
+type OnReceiveDataCallback func(data BatchTicker)
 
 // OnErrorCallback ...
 type OnErrorCallback func(err error, context string)
