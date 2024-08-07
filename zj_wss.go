@@ -192,12 +192,43 @@ func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 		return
 	}
 
+	//批量处理
+	quoteList := make([]Ticker, 0)
 	for symbol, quote := range quoteMessage.Sid {
 		if _, ok := LegalSymbolMap[symbol]; ok {
-			s.OnReceiveMarketDataCallback(symbol, quote)
+
+			//批量一下
+			quoteList = append(quoteList, Ticker{
+				Symbol: symbol,
+				Bid:    convert2String(quote.Buy),
+				Ask:    convert2String(quote.Sell),
+				High:   convert2String(quote.High),
+				Low:    convert2String(quote.Low),
+			})
 		}
 	}
 
+	//一个批量消息传递
+	s.OnReceiveMarketDataCallback(quoteList)
+
+	/*
+		//批量的传递
+		for symbol, quote := range quoteMessage.Sid {
+			if _, ok := LegalSymbolMap[symbol]; ok {
+				s.OnReceiveMarketDataCallback(symbol, quote)
+			}
+		}
+	*/
+
+}
+
+// 辅助函数
+func convert2String(src *string) string {
+	dst := "-"
+	if src != nil {
+		dst = *src
+	}
+	return dst
 }
 
 func (s *TradingViewWebSocket) onError(err error, context string) {

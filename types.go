@@ -31,13 +31,22 @@ type SymbolQuote struct {
 	Buy  *string `mapstructure:"Buy" json:"Buy"`
 }
 
+// -------------------------------------------------------
+type Ticker struct {
+	Symbol string `json:"symbol"`
+	Ask    string `json:"ask"`
+	Bid    string `json:"bid"`
+	High   string `json:"high"`
+	Low    string `json:"low"` //价格没有的话就是 "-"
+}
+
 // Flags ...
 type Flags struct {
 	Flags []string `json:"flags"`
 }
 
 // OnReceiveDataCallback ...
-type OnReceiveDataCallback func(symbol string, data SymbolQuote)
+type OnReceiveDataCallback func(data []Ticker)
 
 // OnErrorCallback ...
 type OnErrorCallback func(err error, context string)
