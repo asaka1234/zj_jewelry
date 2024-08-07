@@ -15,7 +15,7 @@ type InitMessage struct {
 }
 
 type QuoteMessage struct {
-	Sid       map[string]SymbolQuote `mapstructure:"items" json:"items"`
+	Items     map[string]SymbolQuote `mapstructure:"items" json:"items"`
 	PubTime   string                 `mapstructure:"pubtime" json:"pubtime"`
 	Result    string                 `mapstructure:"result" json:"result"`
 	SbjStatus bool                   `mapstructure:"sbj_status" json:"sbj_status"`
@@ -33,11 +33,12 @@ type SymbolQuote struct {
 
 // -------------------------------------------------------
 type Ticker struct {
-	Symbol string `json:"symbol"`
-	Ask    string `json:"ask"`
-	Bid    string `json:"bid"`
-	High   string `json:"high"`
-	Low    string `json:"low"` //价格没有的话就是 "-"
+	Symbol  string `json:"symbol"`
+	Ask     string `json:"ask"`
+	Bid     string `json:"bid"`
+	High    string `json:"high"`
+	Low     string `json:"low"`      //价格没有的话就是 "-"
+	PubTime string `json:"pub_time"` //发布时间
 }
 
 // Flags ...

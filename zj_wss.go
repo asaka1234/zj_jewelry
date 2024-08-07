@@ -194,16 +194,17 @@ func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 
 	//批量处理
 	quoteList := make([]Ticker, 0)
-	for symbol, quote := range quoteMessage.Sid {
+	for symbol, quote := range quoteMessage.Items {
 		if _, ok := LegalSymbolMap[symbol]; ok {
 
 			//批量一下
 			quoteList = append(quoteList, Ticker{
-				Symbol: symbol,
-				Bid:    convert2String(quote.Buy),
-				Ask:    convert2String(quote.Sell),
-				High:   convert2String(quote.High),
-				Low:    convert2String(quote.Low),
+				Symbol:  symbol,
+				Bid:     convert2String(quote.Buy),
+				Ask:     convert2String(quote.Sell),
+				High:    convert2String(quote.High),
+				Low:     convert2String(quote.Low),
+				PubTime: quoteMessage.PubTime, //2024-08-07 18:36:43
 			})
 		}
 	}
