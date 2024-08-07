@@ -24,8 +24,8 @@ var LegalSymbolMap = map[string]string{
 	"USDCNH": "美元",
 
 	//现货价格
-	"TMAU": "公斤条",
-	"SBJ":  "水贝金",
+	//"TMAU": "公斤条",
+	//"SBJ":  "水贝金",
 	"TMAP": "铂金",
 	"TMAG": "白银",
 	"TMPD": "钯金",
