@@ -231,11 +231,13 @@ func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 	}
 
 	//一个批量消息传递
-	s.OnReceiveMarketDataCallback(BatchTicker{
-		//RecvTime: time.Now().Format("2006-01-02 15:04:05"), //quoteMessage.PubTime,
-		PubTime: quoteMessage.PubTime, //2024-08-07 18:36:43
-		Data:    quoteList,
-	})
+	if len(quoteList) > 0 {
+		s.OnReceiveMarketDataCallback(BatchTicker{
+			//RecvTime: time.Now().Format("2006-01-02 15:04:05"), //quoteMessage.PubTime,
+			PubTime: quoteMessage.PubTime, //2024-08-07 18:36:43
+			Data:    quoteList,
+		})
+	}
 }
 
 // 辅助函数
