@@ -120,13 +120,31 @@ func (s *TradingViewWebSocket) checkFirstReceivedMessage() (err error) {
 // 周期性的发送ping给服务侧,以保持链接
 func (s *TradingViewWebSocket) sendPing() {
 
+	intervalSec := 0
 	for {
-		err := s.conn.WriteMessage(websocket.TextMessage, []byte("[\"msg\",{\"msg\":\"88888\"}]"))
-		if err != nil {
-			//s.onError(err, SendMessageErrorContext+" - "+payloadWithHeader)
-			return
+		pingMsg := []byte("42[\"msg\",{\"msg\":\"88888\"}]")
+		pingMsg2 := []byte("2")
+		//pingMsg := []byte("42[\"msg\",{\"msg\":\"undefined\"}]")
+		if intervalSec >= 20 {
+			intervalSec = 0
+			err := s.conn.WriteMessage(websocket.TextMessage, pingMsg2)
+			if err != nil {
+				s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
+				//return
+			}
+			//fmt.Printf("Send: %s\n", string(pingMsg2))
 		}
+		//--------------------------------------
+
+		err := s.conn.WriteMessage(websocket.TextMessage, pingMsg)
+		if err != nil {
+			s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
+			//return
+		}
+		//fmt.Printf("Send: %s\n", string(pingMsg))
+
 		time.Sleep(1 * time.Second)
+		intervalSec += 1
 	}
 }
 
@@ -145,6 +163,7 @@ func (s *TradingViewWebSocket) connectionLoop() {
 
 		go func(msgType int, msg []byte) {
 			if msgType != websocket.TextMessage {
+				s.onError(readMsgError, MessageTypeErrorContext)
 				return
 			}
 
@@ -163,6 +182,9 @@ func (s *TradingViewWebSocket) connectionLoop() {
 
 // 负责解析收到的数据
 func (s *TradingViewWebSocket) parsePacket(packet []byte) {
+
+	//fmt.Printf("Receive:%s\n", string(packet))
+
 	//var symbolsArr []string
 	var quoteMessage QuoteMessage
 	var parseMsg = []interface{}{"msgcallback", quoteMessage}
@@ -210,19 +232,10 @@ func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 
 	//一个批量消息传递
 	s.OnReceiveMarketDataCallback(BatchTicker{
+		//RecvTime: time.Now().Format("2006-01-02 15:04:05"), //quoteMessage.PubTime,
 		PubTime: quoteMessage.PubTime, //2024-08-07 18:36:43
 		Data:    quoteList,
 	})
-
-	/*
-		//批量的传递
-		for symbol, quote := range quoteMessage.Sid {
-			if _, ok := LegalSymbolMap[symbol]; ok {
-				s.OnReceiveMarketDataCallback(symbol, quote)
-			}
-		}
-	*/
-
 }
 
 // 辅助函数
@@ -244,13 +257,13 @@ func (s *TradingViewWebSocket) onError(err error, context string) {
 func getHeaders() http.Header {
 	headers := http.Header{}
 
-	headers.Set("Accept-Encoding", "gzip, deflate, br")
+	headers.Set("Accept-Encoding", "zip, deflate")
 	headers.Set("Accept-Language", "en-US,en;q=0.9,es;q=0.8")
 	headers.Set("Cache-Control", "no-cache")
 	//headers.Set("Host", "data.tradingview.com")
 	headers.Set("Origin", "http://ycjgjj.dsdgood.com")
 	headers.Set("Pragma", "no-cache")
-	headers.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36")
+	headers.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1")
 
 	return headers
 }

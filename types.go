@@ -33,8 +33,9 @@ type SymbolQuote struct {
 
 // -------------------------------------------------------
 type BatchTicker struct {
-	PubTime string   `json:"pub_time"` //发布时间 2024-08-07 18:36:43
-	Data    []Ticker `json:"data"`
+	PubTime string `json:"pub_time"` //发布时间 2024-08-07 18:36:43
+	//RecvTime string   `json:"recv_time"` //发布时间 2024-08-07 18:36:43
+	Data []Ticker `json:"data"`
 }
 
 type Ticker struct {
