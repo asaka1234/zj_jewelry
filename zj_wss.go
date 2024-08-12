@@ -16,34 +16,39 @@ import (
 // Socket ...
 type TradingViewWebSocket struct {
 	address string //websocket地址
+	openLog bool   //是否打开console日志
 
 	OnReceiveMarketDataCallback OnReceiveDataCallback
 	OnErrorCallback             OnErrorCallback
 
 	mx sync.Mutex
 	//conn      *websocket.Conn
-	conn      *recws.RecConn
-	isClosed  bool
+	conn *recws.RecConn
+	//isClosed  bool
 	sessionID string
 
 	pingInterval         int //发送ping的时间间隔
 	closePingChan        chan bool
 	closeSendMessageChan chan bool
+	closeReadMessageChan chan bool
 }
 
 // Connect - Connects and returns the trading view socket object
 func Connect(
 	address string,
+	openLog bool,
 	onReceiveMarketDataCallback OnReceiveDataCallback,
 	onErrorCallback OnErrorCallback,
 ) (socket SocketInterface, err error) {
 	socket = &TradingViewWebSocket{
 		address:                     address,
+		openLog:                     openLog,
 		OnReceiveMarketDataCallback: onReceiveMarketDataCallback,
 		OnErrorCallback:             onErrorCallback,
 		closePingChan:               make(chan bool), //关闭发ping的task
 		closeSendMessageChan:        make(chan bool), //不再定期发subMsg
-		pingInterval:                25000,           //默认
+		closeReadMessageChan:        make(chan bool),
+		pingInterval:                25000, //默认
 	}
 
 	err = socket.Init()
@@ -57,7 +62,6 @@ func Connect(
 // Init connects to the tradingview web socket
 func (s *TradingViewWebSocket) Init() (err error) {
 	s.mx = sync.Mutex{}
-	s.isClosed = true
 	//ctx, cancel := context.WithCancel(context.Background())
 	s.conn = &recws.RecConn{
 		KeepAliveTimeout: 10 * time.Second,
@@ -90,7 +94,6 @@ func (s *TradingViewWebSocket) Init() (err error) {
 
 	*/
 
-	s.isClosed = false
 	go s.connectionLoop()
 	go s.sendPing()
 	go s.sendMessage()
@@ -100,48 +103,26 @@ func (s *TradingViewWebSocket) Init() (err error) {
 
 // Close ...
 func (s *TradingViewWebSocket) Close() (err error) {
-	s.isClosed = true
+	//s.isClosed = true
 	s.closeSendMessageChan <- true
+	s.closeReadMessageChan <- true
 	s.closePingChan <- true
 	s.conn.Close()
 	return nil
 }
 
-func (s *TradingViewWebSocket) checkFirstReceivedMessage() (err error) {
-	//var msg []byte
+func (s *TradingViewWebSocket) checkFirstReceivedMessage() {
 
-	/*
-			if !s.conn.IsConnected() {
-				s.onError(errors.New("ws not connected-1"), InitErrorContext)
-				continue
-			}
-
-			_, msg, err = s.conn.ReadMessage()
-			if err != nil {
-				s.onError(err, ReadFirstMessageErrorContext)
-				return
-			}
-
-			//2. 解析
-			err = s.parseOpenMessage(msg)
-			if err != nil {
-				return err
-			}
-
-
-
-		//3. 先发一个ping
-		pingMsg := []byte("2")
-		//s.mx.Lock()
-		//defer s.mx.Unlock()
-		err = s.conn.WriteMessage(websocket.TextMessage, pingMsg)
-		if err == nil {
-			fmt.Printf("ZJ_Lib Send:%s\n", string(pingMsg))
-		} else {
-			s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
-		}	*/
-
-	return
+	//1. 先发一个ping
+	pingMsg := []byte("2")
+	//s.mx.Lock()
+	//defer s.mx.Unlock()
+	err := s.conn.WriteMessage(websocket.TextMessage, pingMsg)
+	if err == nil {
+		fmt.Printf("ZJ_Lib Send:%s\n", string(pingMsg))
+	} else {
+		s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
+	}
 }
 
 // 获取收到的消息类型
@@ -263,7 +244,7 @@ func (s *TradingViewWebSocket) sendPing() {
 			}
 		case <-ticker.C:
 			if !s.conn.IsConnected() {
-				s.onError(errors.New("ws not connected-2"), InitErrorContext)
+				//s.onError(errors.New("ws not connected-2"), InitErrorContext)
 				continue
 			}
 
@@ -274,7 +255,9 @@ func (s *TradingViewWebSocket) sendPing() {
 				s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
 				//return
 			} else {
-				fmt.Printf("ZJ_Lib Send:%s\n", string(pingMsg))
+				if s.openLog {
+					fmt.Printf("ZJ_Lib Send:%s\n", string(pingMsg))
+				}
 			}
 			s.mx.Unlock()
 		default:
@@ -298,7 +281,7 @@ func (s *TradingViewWebSocket) sendMessage() {
 			}
 		case <-ticker.C:
 			if !s.conn.IsConnected() {
-				s.onError(errors.New("ws not connected-3"), InitErrorContext)
+				//s.onError(errors.New("ws not connected-3"), InitErrorContext)
 				continue
 			}
 
@@ -306,10 +289,14 @@ func (s *TradingViewWebSocket) sendMessage() {
 			//defer s.mx.Unlock()
 			err := s.conn.WriteMessage(websocket.TextMessage, subMsg)
 			if err != nil {
-				s.onError(err, SendMessageErrorContext+" - "+string(subMsg))
+				fmt.Printf("----write error-----%s-----\n", err.Error())
+				//go s.conn.Close()
+				//s.onError(err, SendMessageErrorContext+" - "+string(subMsg))
 				//return
 			} else {
-				fmt.Printf("ZJ_Lib Send:%s\n", string(subMsg))
+				if s.openLog {
+					fmt.Printf("ZJ_Lib Send:%s\n", string(subMsg))
+				}
 			}
 			s.mx.Unlock()
 		default:
@@ -319,43 +306,41 @@ func (s *TradingViewWebSocket) sendMessage() {
 }
 
 func (s *TradingViewWebSocket) connectionLoop() {
-	var readMsgError error
-	var writeKeepAliveMsgError error
 
-	for readMsgError == nil && writeKeepAliveMsgError == nil {
-		if s.isClosed {
-			break
-		}
-
-		var msgType int
-		var msg []byte
-		//s.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-		if !s.conn.IsConnected() {
-			//s.onError(errors.New("ws not connected-4"), InitErrorContext)
-			continue
-		}
-		msgType, msg, readMsgError = s.conn.ReadMessage()
-
-		go func(msgType int, msg []byte) {
-			if msgType == websocket.TextMessage {
-				//s.onError(readMsgError, MessageTypeErrorContext)
-				//fmt.Printf("--ex------%d, %s\n", msgType, string(msg))
-				//return
-				//}
-				go s.parsePacket(msg)
+	for {
+		select {
+		case isClose := <-s.closeReadMessageChan:
+			if isClose {
+				fmt.Printf("Client, stop read message goroutine\n")
+				return
+			}
+		default:
+			//fmt.Printf("----buaa-----\n")
+			if !s.conn.IsConnected() {
+				//s.onError(errors.New("ws not connected-4"), InitErrorContext)
+				continue
 			}
 
-		}(msgType, msg)
-	}
+			msgType, msg, readMsgError := s.conn.ReadMessage()
+			if readMsgError != nil {
+				//读取不到直接断开,随后重连
+				fmt.Printf("----read error-----%s-----\n", readMsgError.Error())
+				//go s.conn.Close()
+				//s.onError(readMsgError, ReadMessageErrorContext)
+				//return
+			} else {
+				go func(msgType int, msg []byte) {
+					if msgType == websocket.TextMessage {
+						//s.onError(readMsgError, MessageTypeErrorContext)
+						//fmt.Printf("--ex------%d, %s\n", msgType, string(msg))
+						//return
+						//}
+						go s.parsePacket(msg)
+					}
 
-	if readMsgError != nil {
-		//读取不到直接断开,随后重连
-		go s.conn.Close()
-		//s.onError(readMsgError, ReadMessageErrorContext)
-		return
-	}
-	if writeKeepAliveMsgError != nil {
-		s.onError(writeKeepAliveMsgError, SendKeepAliveMessageErrorContext)
+				}(msgType, msg)
+			}
+		}
 	}
 }
 
@@ -363,7 +348,9 @@ func (s *TradingViewWebSocket) connectionLoop() {
 func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 
 	//{"sid":"NjZiOTljNmEwOTA2YQ==","upgrades":[],"pingInterval":25000,"pingTimeout":60000}
-	fmt.Printf("ZJ_Lib Receive:%s\n", string(packet))
+	if s.openLog {
+		fmt.Printf("ZJ_Lib Receive:%s\n", string(packet))
+	}
 
 	//查询消息类型
 	msgType := s.getMessageType(packet)
@@ -397,9 +384,11 @@ func convert2String(src *string) string {
 }
 
 func (s *TradingViewWebSocket) onError(err error, context string) {
-	if s.conn != nil {
-		s.conn.Close()
-	}
+	/*
+		if s.conn != nil {
+			s.conn.Close()
+		}
+	*/
 	s.OnErrorCallback(err, context)
 }
 

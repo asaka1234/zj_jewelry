@@ -11,6 +11,7 @@ import (
 func TestExx_Signed(t *testing.T) {
 	handle, err := Connect(
 		WidgetDataWssAddress, //DataWssAddress,                     //WidgetDataWssAddress,         //wss地址
+		true,
 		func(data BatchTicker) {
 
 			//fmt.Printf("data:%s\n", data)
