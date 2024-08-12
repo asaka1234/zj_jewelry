@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/mitchellh/mapstructure"
 	"github.com/recws-org/recws"
+	"github.com/samber/lo"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,8 +16,9 @@ import (
 
 // Socket ...
 type TradingViewWebSocket struct {
-	address string //websocket地址
-	openLog bool   //是否打开console日志
+	address    string   //websocket地址
+	openLog    bool     //是否打开console日志
+	symbolList []string //要查询的symbol列表
 
 	OnReceiveMarketDataCallback OnReceiveDataCallback
 	OnErrorCallback             OnErrorCallback
@@ -37,12 +39,14 @@ type TradingViewWebSocket struct {
 func Connect(
 	address string,
 	openLog bool,
+	symbolList []string,
 	onReceiveMarketDataCallback OnReceiveDataCallback,
 	onErrorCallback OnErrorCallback,
 ) (socket SocketInterface, err error) {
 	socket = &TradingViewWebSocket{
 		address:                     address,
 		openLog:                     openLog,
+		symbolList:                  symbolList,
 		OnReceiveMarketDataCallback: onReceiveMarketDataCallback,
 		OnErrorCallback:             onErrorCallback,
 		closePingChan:               make(chan bool), //关闭发ping的task
@@ -202,7 +206,7 @@ func (s *TradingViewWebSocket) parseNormalMessage(data []byte) error {
 	//批量处理
 	quoteList := make([]Ticker, 0)
 	for symbol, quote := range quoteMessage.Items {
-		if _, ok := LegalSymbolMap[symbol]; ok {
+		if ok := lo.Contains(s.symbolList, symbol); ok {
 
 			//批量一下
 			quoteList = append(quoteList, Ticker{
@@ -398,9 +402,12 @@ func getHeaders() http.Header {
 	headers.Set("Accept-Encoding", "zip, deflate")
 	headers.Set("Accept-Language", "en-US,en;q=0.9,es;q=0.8")
 	headers.Set("Cache-Control", "no-cache")
+	//headers.Set("Connection", "Upgrade")
+	headers.Set("Host", "159.75.182.253:9502")
 	//headers.Set("Host", "data.tradingview.com")
 	headers.Set("Origin", "http://ycjgjj.dsdgood.com")
 	headers.Set("Pragma", "no-cache")
+	//headers.Set("Upgrade", "websocket")
 	headers.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1")
 
 	return headers

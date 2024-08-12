@@ -13,5 +13,7 @@ require (
 	github.com/parnurzeal/gorequest v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/recws-org/recws v1.4.0 // indirect
+	github.com/samber/lo v1.46.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 )

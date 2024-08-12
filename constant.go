@@ -1,7 +1,7 @@
 package zj_jewelry
 
 const (
-	WidgetDataWssAddress = "ws://159.75.182.253:9502/socket.io/"
+	WidgetDataWssAddress = "ws://159.75.182.253:9502/socket.io/?EIO=3&transport=websocket"
 )
 
 type MsgType string
@@ -13,6 +13,7 @@ const (
 	MsgTypeMessage MsgType = "42"
 )
 
+/*
 var LegalSymbolMap = map[string]string{
 
 	//国内行情
@@ -38,15 +39,5 @@ var LegalSymbolMap = map[string]string{
 	"TMAP": "铂金",
 	"TMAG": "白银",
 	"TMPD": "钯金",
-
-	/*
-		//这些貌似没展示/没用到
-		"AUKB9999": "公斤条", //TODO 要用哪一个的价格呢?
-		"AP950":   "铂金950",
-		"AP990":   "钯金990",
-		"AU9985":  "千足金",
-		"18K":     "18K旧料",
-		"USRd":    "美铑金",
-		"Rhodium": "铑金",
-	*/
 }
+*/
