@@ -47,6 +47,9 @@ func Connect(
 	}
 
 	err = socket.Init()
+	if err != nil {
+		return nil, err
+	}
 
 	return
 }
@@ -80,7 +83,7 @@ func (s *TradingViewWebSocket) Init() (err error) {
 	//链接上服务器后, server会推过来一个初始化确认信息
 	err = s.checkFirstReceivedMessage()
 	if err != nil {
-		return
+		return err
 	}
 
 	s.isClosed = false
