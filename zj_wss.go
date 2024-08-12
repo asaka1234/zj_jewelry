@@ -60,7 +60,6 @@ func (s *TradingViewWebSocket) Init() (err error) {
 		KeepAliveTimeout: 10 * time.Second,
 	}
 	s.conn.Dial(s.address, getHeaders())
-
 	/*
 		go func() {
 			time.Sleep(2 * time.Second)
@@ -104,6 +103,11 @@ func (s *TradingViewWebSocket) Close() (err error) {
 func (s *TradingViewWebSocket) checkFirstReceivedMessage() (err error) {
 	var msg []byte
 
+	if !s.conn.IsConnected() {
+		s.onError(errors.New("ws not connected"), InitErrorContext)
+		return
+	}
+
 	_, msg, err = s.conn.ReadMessage()
 	if err != nil {
 		s.onError(err, ReadFirstMessageErrorContext)
@@ -138,8 +142,12 @@ func (s *TradingViewWebSocket) checkFirstReceivedMessage() (err error) {
 	pingMsg := []byte("2")
 	//s.mx.Lock()
 	//defer s.mx.Unlock()
-	s.conn.WriteMessage(websocket.TextMessage, pingMsg)
-	//fmt.Printf("Send:%s\n", string(pingMsg))
+	err = s.conn.WriteMessage(websocket.TextMessage, pingMsg)
+	if err == nil {
+		fmt.Printf("ZJ_Lib Send:%s\n", string(pingMsg))
+	} else {
+		s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
+	}
 
 	return
 }
@@ -161,6 +169,11 @@ func (s *TradingViewWebSocket) sendPing() {
 				return
 			}
 		case <-ticker.C:
+			if !s.conn.IsConnected() {
+				s.onError(errors.New("ws not connected"), InitErrorContext)
+				return
+			}
+
 			s.mx.Lock()
 			//defer s.mx.Unlock()
 			err := s.conn.WriteMessage(websocket.TextMessage, pingMsg)
@@ -168,7 +181,7 @@ func (s *TradingViewWebSocket) sendPing() {
 				s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
 				//return
 			} else {
-				//fmt.Printf("Send:%s\n", string(pingMsg))
+				fmt.Printf("ZJ_Lib Send:%s\n", string(pingMsg))
 			}
 			s.mx.Unlock()
 		default:
@@ -179,7 +192,7 @@ func (s *TradingViewWebSocket) sendPing() {
 
 func (s *TradingViewWebSocket) sendMessage() {
 
-	subMsg := []byte("42[\"msg\",{\"msg\":\"undefined\"}]")
+	subMsg := []byte("42[\"msg\",{\"msg\":\"88888\"}]")
 	//1s发一个ping
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -192,6 +205,11 @@ func (s *TradingViewWebSocket) sendMessage() {
 				return
 			}
 		case <-ticker.C:
+			if !s.conn.IsConnected() {
+				s.onError(errors.New("ws not connected"), InitErrorContext)
+				return
+			}
+
 			s.mx.Lock()
 			//defer s.mx.Unlock()
 			err := s.conn.WriteMessage(websocket.TextMessage, subMsg)
@@ -199,7 +217,7 @@ func (s *TradingViewWebSocket) sendMessage() {
 				s.onError(err, SendMessageErrorContext+" - "+string(subMsg))
 				//return
 			} else {
-				//fmt.Printf("Send:%s\n", string(subMsg))
+				fmt.Printf("ZJ_Lib Send:%s\n", string(subMsg))
 			}
 			s.mx.Unlock()
 		default:
@@ -219,15 +237,21 @@ func (s *TradingViewWebSocket) connectionLoop() {
 
 		var msgType int
 		var msg []byte
+		//s.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+		if !s.conn.IsConnected() {
+			s.onError(errors.New("ws not connected"), InitErrorContext)
+			return
+		}
 		msgType, msg, readMsgError = s.conn.ReadMessage()
 
 		go func(msgType int, msg []byte) {
-			if msgType != websocket.TextMessage {
-				s.onError(readMsgError, MessageTypeErrorContext)
-				return
+			if msgType == websocket.TextMessage {
+				//s.onError(readMsgError, MessageTypeErrorContext)
+				//fmt.Printf("--ex------%d, %s\n", msgType, string(msg))
+				//return
+				//}
+				go s.parsePacket(msg)
 			}
-
-			go s.parsePacket(msg)
 
 		}(msgType, msg)
 	}
@@ -243,7 +267,7 @@ func (s *TradingViewWebSocket) connectionLoop() {
 // 负责解析收到的数据
 func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 
-	//fmt.Printf("Receive:%s\n", string(packet))
+	fmt.Printf("ZJ_Lib Receive:%s\n", string(packet))
 
 	//var symbolsArr []string
 	var quoteMessage QuoteMessage
