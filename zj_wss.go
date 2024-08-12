@@ -139,7 +139,7 @@ func (s *TradingViewWebSocket) checkFirstReceivedMessage() (err error) {
 	//s.mx.Lock()
 	//defer s.mx.Unlock()
 	s.conn.WriteMessage(websocket.TextMessage, pingMsg)
-	fmt.Printf("Send:%s\n", string(pingMsg))
+	//fmt.Printf("Send:%s\n", string(pingMsg))
 
 	return
 }
@@ -168,7 +168,7 @@ func (s *TradingViewWebSocket) sendPing() {
 				s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
 				//return
 			} else {
-				fmt.Printf("Send:%s\n", string(pingMsg))
+				//fmt.Printf("Send:%s\n", string(pingMsg))
 			}
 			s.mx.Unlock()
 		default:
@@ -199,7 +199,7 @@ func (s *TradingViewWebSocket) sendMessage() {
 				s.onError(err, SendMessageErrorContext+" - "+string(subMsg))
 				//return
 			} else {
-				fmt.Printf("Send:%s\n", string(subMsg))
+				//fmt.Printf("Send:%s\n", string(subMsg))
 			}
 			s.mx.Unlock()
 		default:
@@ -243,7 +243,7 @@ func (s *TradingViewWebSocket) connectionLoop() {
 // 负责解析收到的数据
 func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 
-	fmt.Printf("Receive:%s\n", string(packet))
+	//fmt.Printf("Receive:%s\n", string(packet))
 
 	//var symbolsArr []string
 	var quoteMessage QuoteMessage
