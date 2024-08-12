@@ -206,8 +206,7 @@ func (s *TradingViewWebSocket) parseNormalMessage(data []byte) error {
 	//批量处理
 	quoteList := make([]Ticker, 0)
 	for symbol, quote := range quoteMessage.Items {
-		if ok := lo.Contains(s.symbolList, symbol); ok {
-
+		if ok := lo.Contains(s.symbolList, symbol); ok && strings.Index(symbol, "Unknown-") != 0 {
 			//批量一下
 			quoteList = append(quoteList, Ticker{
 				Symbol: symbol,
