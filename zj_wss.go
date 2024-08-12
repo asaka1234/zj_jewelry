@@ -3,8 +3,10 @@ package zj_jewelry
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/mitchellh/mapstructure"
+	"github.com/recws-org/recws"
 	"net/http"
 	"strings"
 	"sync"
@@ -18,10 +20,15 @@ type TradingViewWebSocket struct {
 	OnReceiveMarketDataCallback OnReceiveDataCallback
 	OnErrorCallback             OnErrorCallback
 
-	mx        sync.Mutex
-	conn      *websocket.Conn
+	mx sync.Mutex
+	//conn      *websocket.Conn
+	conn      *recws.RecConn
 	isClosed  bool
 	sessionID string
+
+	pingInterval         int //发送ping的时间间隔
+	closePingChan        chan bool
+	closeSendMessageChan chan bool
 }
 
 // Connect - Connects and returns the trading view socket object
@@ -34,6 +41,9 @@ func Connect(
 		address:                     address,
 		OnReceiveMarketDataCallback: onReceiveMarketDataCallback,
 		OnErrorCallback:             onErrorCallback,
+		closePingChan:               make(chan bool), //关闭发ping的task
+		closeSendMessageChan:        make(chan bool), //不再定期发subMsg
+		pingInterval:                20,              //默认
 	}
 
 	err = socket.Init()
@@ -45,11 +55,28 @@ func Connect(
 func (s *TradingViewWebSocket) Init() (err error) {
 	s.mx = sync.Mutex{}
 	s.isClosed = true
-	s.conn, _, err = (&websocket.Dialer{}).Dial(s.address, getHeaders())
-	if err != nil {
-		s.onError(err, InitErrorContext)
-		return
+	//ctx, cancel := context.WithCancel(context.Background())
+	s.conn = &recws.RecConn{
+		KeepAliveTimeout: 10 * time.Second,
 	}
+	s.conn.Dial(s.address, getHeaders())
+
+	/*
+		go func() {
+			time.Sleep(2 * time.Second)
+			cancel()
+		}()
+
+	*/
+
+	/*
+		s.conn, _, err = (&websocket.Dialer{}).Dial(s.address, getHeaders())
+		if err != nil {
+			s.onError(err, InitErrorContext)
+			return
+		}
+
+	*/
 
 	//链接上服务器后, server会推过来一个初始化确认信息
 	err = s.checkFirstReceivedMessage()
@@ -57,21 +84,10 @@ func (s *TradingViewWebSocket) Init() (err error) {
 		return
 	}
 
-	//创建一个session_id,这个是这次wss交互的唯一标记
-	//s.generateSessionID()
-
-	/*
-		err = s.sendConnectionSetupMessages()
-		if err != nil {
-			s.onError(err, ConnectionSetupMessagesErrorContext)
-			return
-		}
-
-	*/
-
 	s.isClosed = false
 	go s.connectionLoop()
 	go s.sendPing()
+	go s.sendMessage()
 
 	return
 }
@@ -79,7 +95,10 @@ func (s *TradingViewWebSocket) Init() (err error) {
 // Close ...
 func (s *TradingViewWebSocket) Close() (err error) {
 	s.isClosed = true
-	return s.conn.Close()
+	s.closeSendMessageChan <- true
+	s.closePingChan <- true
+	s.conn.Close()
+	return nil
 }
 
 func (s *TradingViewWebSocket) checkFirstReceivedMessage() (err error) {
@@ -108,11 +127,19 @@ func (s *TradingViewWebSocket) checkFirstReceivedMessage() (err error) {
 	}
 
 	//本质上就是看一下有没有session_id
-	if p["sid"] == nil {
+	if p["sid"] == nil || p["pingInterval"] == nil {
 		err = errors.New("cannot recognize the first received message after establishing the connection")
 		s.onError(err, FirstMessageWithoutSessionIdErrorContext)
 		return
 	}
+	s.pingInterval = int(p["pingInterval"].(float64)) //毫秒 25000  (25s)
+
+	//先发一个ping
+	pingMsg := []byte("2")
+	//s.mx.Lock()
+	//defer s.mx.Unlock()
+	s.conn.WriteMessage(websocket.TextMessage, pingMsg)
+	fmt.Printf("Send:%s\n", string(pingMsg))
 
 	return
 }
@@ -120,31 +147,64 @@ func (s *TradingViewWebSocket) checkFirstReceivedMessage() (err error) {
 // 周期性的发送ping给服务侧,以保持链接
 func (s *TradingViewWebSocket) sendPing() {
 
-	intervalSec := 0
+	pingMsg := []byte("2")
+
+	//25s发一个ping
+	ticker := time.NewTicker(time.Duration(s.pingInterval) * time.Millisecond)
+	defer ticker.Stop()
+
 	for {
-		pingMsg := []byte("42[\"msg\",{\"msg\":\"88888\"}]")
-		pingMsg2 := []byte("2")
-		//pingMsg := []byte("42[\"msg\",{\"msg\":\"undefined\"}]")
-		if intervalSec >= 20 {
-			intervalSec = 0
-			err := s.conn.WriteMessage(websocket.TextMessage, pingMsg2)
+		select {
+		case isClose := <-s.closePingChan:
+			if isClose {
+				fmt.Printf("Client, stop ping goroutine\n")
+				return
+			}
+		case <-ticker.C:
+			s.mx.Lock()
+			//defer s.mx.Unlock()
+			err := s.conn.WriteMessage(websocket.TextMessage, pingMsg)
 			if err != nil {
 				s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
 				//return
+			} else {
+				fmt.Printf("Send:%s\n", string(pingMsg))
 			}
-			//fmt.Printf("Send: %s\n", string(pingMsg2))
+			s.mx.Unlock()
+		default:
+			break
 		}
-		//--------------------------------------
+	}
+}
 
-		err := s.conn.WriteMessage(websocket.TextMessage, pingMsg)
-		if err != nil {
-			s.onError(err, SendMessageErrorContext+" - "+string(pingMsg))
-			//return
+func (s *TradingViewWebSocket) sendMessage() {
+
+	subMsg := []byte("42[\"msg\",{\"msg\":\"undefined\"}]")
+	//1s发一个ping
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case isClose := <-s.closeSendMessageChan:
+			if isClose {
+				fmt.Printf("Client, stop send message goroutine\n")
+				return
+			}
+		case <-ticker.C:
+			s.mx.Lock()
+			//defer s.mx.Unlock()
+			err := s.conn.WriteMessage(websocket.TextMessage, subMsg)
+			if err != nil {
+				s.onError(err, SendMessageErrorContext+" - "+string(subMsg))
+				//return
+			} else {
+				fmt.Printf("Send:%s\n", string(subMsg))
+			}
+			s.mx.Unlock()
+		default:
+			break
 		}
-		//fmt.Printf("Send: %s\n", string(pingMsg))
-
-		time.Sleep(1 * time.Second)
-		intervalSec += 1
 	}
 }
 
@@ -183,7 +243,7 @@ func (s *TradingViewWebSocket) connectionLoop() {
 // 负责解析收到的数据
 func (s *TradingViewWebSocket) parsePacket(packet []byte) {
 
-	//fmt.Printf("Receive:%s\n", string(packet))
+	fmt.Printf("Receive:%s\n", string(packet))
 
 	//var symbolsArr []string
 	var quoteMessage QuoteMessage

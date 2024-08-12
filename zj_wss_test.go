@@ -9,11 +9,11 @@ import (
 )
 
 func TestExx_Signed(t *testing.T) {
-	_, err := Connect(
+	handle, err := Connect(
 		WidgetDataWssAddress, //DataWssAddress,                     //WidgetDataWssAddress,         //wss地址
 		func(data BatchTicker) {
 
-			fmt.Printf("data:%s\n", data)
+			//fmt.Printf("data:%s\n", data)
 
 			/*
 				for _, item := range data.Data {
@@ -40,6 +40,7 @@ func TestExx_Signed(t *testing.T) {
 	//tradingviewsocket.AddSymbols([]interface{}{"DOGEUSDT", "BTCUSDT"})
 
 	quit := make(chan os.Signal)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGKILL)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGTSTP, syscall.SIGKILL)
 	<-quit
+	handle.Close()
 }
