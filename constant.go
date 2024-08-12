@@ -1,7 +1,16 @@
 package zj_jewelry
 
 const (
-	WidgetDataWssAddress = "ws://159.75.182.253:9502/socket.io/?EIO=3&transport=websocket"
+	WidgetDataWssAddress = "ws://159.75.182.253:9502/socket.io/"
+)
+
+type MsgType string
+
+const (
+	MsgTypeUnknown MsgType = "-1" //不知道
+	MsgTypeOpen    MsgType = "0"
+	MsgTypePong    MsgType = "3"
+	MsgTypeMessage MsgType = "42"
 )
 
 var LegalSymbolMap = map[string]string{
